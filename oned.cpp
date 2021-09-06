@@ -1,8 +1,13 @@
 #include <iostream>
 #include <iomanip>
 #include <cmath>
+#include <bitset>
 
 using namespace std;
+
+const double A = 4;
+const double B = 5;
+const double C = 9;
 
 class Function {
     int m_counter = 0;
@@ -15,12 +20,18 @@ public:
     }
 
     double eval_without_inc(double x) const {
-        const double A = 4;
-        const double B = 5;
-        const double C = 9;
-
         //can be improved
         return exp(B * x) + exp(-A * x) + A * x * x + C * x + B - x * x * x;
+    }
+
+    double eval_der(double x) {
+        m_counter += 1;
+        return B * exp(B * x) - A * exp(-A * x) + 2 * A * x + C - 3 * x * x;
+    }
+
+    double eval_der2(double x) {
+        m_counter += 1;
+        return B * B * exp(B * x) + A * A * exp(-A * x) + 2 * A - 6 * x;
     }
 
     void reset() { m_counter = 0; }
@@ -31,32 +42,35 @@ public:
 
 struct Result {
     const char* name = 0;
+    int digits;
     double x = 0.0;
     int num_calls = 0;
     int num_iterations = 0;
 };
 
-
 Result search_passive(double a, double b, double step);
-Result bin_search(double a, double b, double delta, double tol);
+Result bin_search(double a, double b, double delta, int r);
 
 void print_results(const Result* r, int n, int p, int q);
 
 int main() {
     const double LEFT = -1.0;
     const double RIGHT = 1.0;
-    const double TOLERANCE = 1e-5; //four digits + one extra in case of rounding error
-    const double DELTA = 1e-6;
+
+    const int DIGITS = 4;
+
+    double TOLERANCE = 1e-5;
+    double DELTA = TOLERANCE / 10;
 
     ios::sync_with_stdio(false);
 
     Result r[2];
 
     r[0] = search_passive(LEFT, RIGHT, TOLERANCE);
-    r[1] = bin_search(LEFT, RIGHT, DELTA, TOLERANCE);
+    r[1] = bin_search(LEFT, RIGHT, DELTA, DIGITS);
 
     printf("\n\n");
-    print_results(r, size(r), 2, 4);
+    print_results(r, size(r), 2, 8);
 }
 
 void print_iter_info(int i, double a, double b, double x, double y, bool chk = false) {
@@ -82,10 +96,11 @@ Result search_passive(double a, double b, double step) {
         if (y < min_y) {
             min_x = a;
             min_y = y;
-            chk = true;
-            should_print = r.num_iterations % 1'00 == 0;
+
+            chk = true; //print 'x' at the end of the line
+            should_print = r.num_iterations % 1'00 == 0; //print every 100th iteration
         } 
-        should_print |= r.num_iterations % 1'000 == 0;
+        should_print |= r.num_iterations % 1'000 == 0; //print every 1000th iteration
 
         if (should_print)
             print_iter_info(r.num_iterations + 1, a, b, min_x, min_y, chk);
@@ -96,7 +111,7 @@ Result search_passive(double a, double b, double step) {
     return r;
 }
 
-Result bin_search(double a, double b, double delta, double tol) {
+Result bin_search(double a, double b, double delta, int digits) {
     f.reset();
     Result r;
     r.name = "binary search";
@@ -104,12 +119,14 @@ Result bin_search(double a, double b, double delta, double tol) {
 
     double middle;
     double c, d, cy, dy;
+    double n;
 
     do {
         middle = (a + b) / 2;
+        print_iter_info(r.num_iterations + 1, a, b, middle, f.eval_without_inc(middle));
+
         c = middle - delta / 2, d = middle + delta / 2,
             cy = f.eval(c), dy = f.eval(d);
-        print_iter_info(r.num_iterations + 1, a, b, middle, f.eval_without_inc(middle));
         
         if (cy < dy)
             b = d;
@@ -117,8 +134,13 @@ Result bin_search(double a, double b, double delta, double tol) {
             a = c;
 
         r.num_iterations++;
-    } while ((b - a) / 2 > tol);
-    //we are done when half of the remaining interval is less than tolerance
+
+        if (middle != 0)
+            n = floor(log10(abs(middle))); //slow af
+        else
+            n = 0;
+    } while ((b - a) / 2 > 5 * pow(10, n - digits));
+//    } while ((b - a) / 2 > tol);
 
     r.x = middle;
     r.num_calls = f.num_of_calls();
