@@ -1,165 +1,265 @@
-#include <iostream>
-#include <iomanip>
+#include <cstdio>
 #include <cmath>
-#include <bitset>
+#include <vector>
+#include <algorithm>
+#include "display.hpp"
+#include "func.hpp"
 
 using namespace std;
 
-const double A = 4;
-const double B = 5;
-const double C = 9;
+vector<it::Passive> pits;
+vector<it::Localizer> bits;
+vector<it::Localizer> gits;
+vector<it::Localizer> fits;
+vector<it::Tangent> tanits; //o_O
+vector<it::Newton> nits;
+vector<it::Newton> sits;
 
-class Function {
-    int m_counter = 0;
-public:
-    Function() = default;
+double passive(double a, double b, double step);
+double dichotomy(double a, double b, int r);
+double golden_ratio(double a, double b, int r);
+double fibonacci(double a, double b, double eps);
 
-    double eval(double x) {
-        m_counter++;
-        return eval_without_inc(x);
-    }
-
-    double eval_without_inc(double x) const {
-        //can be improved
-        return exp(B * x) + exp(-A * x) + A * x * x + C * x + B - x * x * x;
-    }
-
-    double eval_der(double x) {
-        m_counter += 1;
-        return B * exp(B * x) - A * exp(-A * x) + 2 * A * x + C - 3 * x * x;
-    }
-
-    double eval_der2(double x) {
-        m_counter += 1;
-        return B * B * exp(B * x) + A * A * exp(-A * x) + 2 * A - 6 * x;
-    }
-
-    void reset() { m_counter = 0; }
-
-    int num_of_calls() const { return m_counter; }
-
-} f;
-
-struct Result {
-    const char* name = 0;
-    int digits;
-    double x = 0.0;
-    int num_calls = 0;
-    int num_iterations = 0;
-};
-
-Result search_passive(double a, double b, double step);
-Result bin_search(double a, double b, double delta, int r);
-
-void print_results(const Result* r, int n, int p, int q);
+double tangent(double a, double b, int r);
+double newton(double a, double b, double x0, double eps);
+double secant(double a, double b, double x1, double x2, double eps);
 
 int main() {
     const double LEFT = -1.0;
     const double RIGHT = 1.0;
+    const double EPS = 1e-5;
 
     const int DIGITS = 4;
 
-    double TOLERANCE = 1e-5;
-    double DELTA = TOLERANCE / 10;
+    passive(LEFT, RIGHT, EPS);
+    dichotomy(LEFT, RIGHT, DIGITS);
+    golden_ratio(LEFT, RIGHT, DIGITS);
+    fibonacci(LEFT, RIGHT, EPS);
 
-    ios::sync_with_stdio(false);
+    tangent(LEFT, RIGHT, DIGITS);
+    newton(LEFT, RIGHT, RIGHT, EPS);
+    secant(LEFT, RIGHT, RIGHT, RIGHT - EPS, EPS);
 
-    Result r[2];
-
-    r[0] = search_passive(LEFT, RIGHT, TOLERANCE);
-    r[1] = bin_search(LEFT, RIGHT, DELTA, DIGITS);
-
+    print_iteration_table(pits, bits, gits, fits, tanits, nits, sits);
     printf("\n\n");
-    print_results(r, size(r), 2, 8);
+    auto results = extract_results(pits, bits, gits, fits, tanits, nits, sits);
+    print_results(results.data(), results.size());
 }
 
-void print_iter_info(int i, double a, double b, double x, double y, bool chk = false) {
-    printf("%10d) bounds: [%8.5f; %8.5f], point: (%8.5f, %8.5f)%s\n",
-        i, a, b, x, y, chk ? "\tx" : "");
-}
-
-Result search_passive(double a, double b, double step) {
-    f.reset();
-    Result r;
-    r.name = "passive search";
-    printf("%s\n", r.name);
+double passive(double a, double b, double step) {
+    Function f;
 
     double min_x = a, min_y = f.eval(a);
-    print_iter_info(1, a, b, min_x, min_y);
-    r.num_iterations++;
+    pits.push_back({ min_x, f.num_of_calls() });
+
     
-    //stop after having scanned the interval
-    for (a += step; a <= b; a += step, r.num_iterations++) {
+    for (a += step; a <= b; a += step) {
         double y = f.eval(a);
-        bool should_print = false;
-        bool chk = false;
         if (y < min_y) {
             min_x = a;
             min_y = y;
-
-            chk = true; //print 'x' at the end of the line
-            should_print = r.num_iterations % 1'00 == 0; //print every 100th iteration
         } 
-        should_print |= r.num_iterations % 1'000 == 0; //print every 1000th iteration
-
-        if (should_print)
-            print_iter_info(r.num_iterations + 1, a, b, min_x, min_y, chk);
+        pits.push_back({ min_x, f.num_of_calls() });
     }
 
-    r.x = min_x;
-    r.num_calls = f.num_of_calls();
-    return r;
+    return min_x;
 }
 
-Result bin_search(double a, double b, double delta, int digits) {
-    f.reset();
-    Result r;
-    r.name = "binary search";
-    printf("%s\n", r.name);
-
+double dichotomy(double a, double b, int r) {
+    Function f;
     double middle;
     double c, d, cy, dy;
-    double n;
+
+    double K = 1.0 / (2.0 * pow(10, r));
 
     do {
         middle = (a + b) / 2;
-        print_iter_info(r.num_iterations + 1, a, b, middle, f.eval_without_inc(middle));
+        double delta = (b - a) / 20;
 
-        c = middle - delta / 2, d = middle + delta / 2,
+        c = middle - delta, d = middle + delta,
             cy = f.eval(c), dy = f.eval(d);
-        
+
+        bits.push_back({ a, b, c, d, f.num_of_calls() });
+
         if (cy < dy)
             b = d;
         else
             a = c;
+    } while ((b - a) / 2 > K * abs(middle));
 
-        r.num_iterations++;
+    bits.push_back({ a, b, c, d, f.num_of_calls() }); //just for debug info, not an actual iteration
 
-        if (middle != 0)
-            n = floor(log10(abs(middle))); //slow af
-        else
-            n = 0;
-    } while ((b - a) / 2 > 5 * pow(10, n - digits));
-//    } while ((b - a) / 2 > tol);
-
-    r.x = middle;
-    r.num_calls = f.num_of_calls();
-    return r;
+    return (a + b) / 2;
 }
 
-void print_results(const Result* r, int n, int p, int q) {
-    const char header[] = "  #  |       Name       | Iterations |   Calls    |     Result    ";
-    char sep[size(header)];
-    memset(sep, '-', size(header));
-    sep[size(header) - 1] = 0;
-    printf("%s\n", header);
-    int total = p + q + 2;
-    for (int i = 0; i < n; ++i) {
-        double y = f.eval_without_inc(r[i].x);
-        printf("%s\n", sep);
-        printf("  %2d | %16s | %10d | %10d | (%*.*f, %*.*f)\n",
-            i + 1, r[i].name, r[i].num_iterations, r[i].num_calls,
-            total, q, r[i].x, total, q, y);
+double golden_ratio(double a, double b, int digits) {
+    Function f;
+
+    double K = 1.0 / (2.0 * pow(10, digits));
+    double P = (3 - sqrt(5)) / 2,
+           Q = (sqrt(5) - 1) / 2;
+
+    double c = P * (b - a) + a, cy = f.eval(c),
+           d = Q * (b - a) + a, dy = f.eval(d);
+    gits.push_back({ a, b, c, d, f.num_of_calls() });
+    if (cy < dy) {
+        b = d;
+        d = c; dy = cy;
+        c = P * (b - a) + a; cy = f.eval(c);
+    } else {
+        a = c;
+        c = d;cy = dy;
+        d = Q * (b - a) + a; dy = f.eval(d);
     }
+
+    while (true) {
+        gits.push_back({ a, b, c, d, f.num_of_calls() });
+        if (cy < dy) {
+            b = d;
+            d = c; dy = cy;
+            c = P * (b - a) + a; 
+            if (b - a < K * abs(a + b))
+                break;
+            cy = f.eval(c);
+        } else {
+            a = c;
+            c = d;cy = dy;
+            d = Q * (b - a) + a; 
+            if (b - a < K * abs(a + b))
+                break;
+            dy = f.eval(d);
+        }
+    }
+
+    gits.push_back({ a, b, c, d, f.num_of_calls() }); //fake iteration just for debug purposes
+
+    return (a + b) / 2;
+}
+
+double fibonacci(double a, double b, double eps) {
+    Function f;
+    vector<double> fib = { 1.0, 1.0 };
+    int64_t p = 1, q = 1;
+    while (fib.back() < 11.0 / 20.0 * (b-a) / eps) {
+        size_t n = fib.size();
+        int64_t t = p + q;
+        p = q; q = t;
+        fib.push_back(q);
+    }
+
+    size_t n = fib.size() - 1;
+    double c = a + (b - a) * fib[n - 2] / fib[n],
+           cy = f.eval(c),
+           d = a + (b - a) * fib[n - 1] / fib[n],
+           dy = f.eval(d);
+    fits.push_back({ a, b, c, d, f.num_of_calls() });
+    n--;
+    if (cy < dy) {
+        b = d;
+        d = c; dy = cy;
+        c = a + (b - a) * fib[n - 2] / fib[n];
+        cy = f.eval(c);
+    } else {
+        a = c;
+        c = d; cy = dy;
+        d = a + (b - a) * fib[n - 1] / fib[n],
+        dy = f.eval(d);
+    }
+
+    while (true) {
+        fits.push_back({ a, b, c, d, f.num_of_calls() });
+        n--;
+        if (cy < dy) {
+            b = d;
+            d = c; dy = cy;
+            c = a + (b - a) * fib[n - 2] / fib[n];
+            if (n <= 2)
+                break;
+            cy = f.eval(c);
+        } else {
+            a = c;
+            c = d; cy = dy;
+            d = a + (b - a) * fib[n - 1] / fib[n];
+            if (n <= 2)
+                break;
+            dy = f.eval(d);
+        }
+    }
+    double middle = c,
+           delta = 0.1 * (b - a) / fib.back();
+    c = middle + delta;
+    d = middle - delta;
+
+    if (f.eval(c) < f.eval(d)) {
+        b = d;
+    } else {
+        a = c;
+    }
+
+    fits.push_back({ a, b, c, d, f.num_of_calls() });
+
+    return (a + b) / 2;
+}
+
+double tangent(double a, double b, int r) {
+    Function f;
+    double K = 1.0 / (2.0 * pow(10, r));
+
+    double ay = f.eval(a), by = f.eval(b),
+           ady = f.eval_der(a), bdy = f.eval_der(b),
+           c, cdy;
+    while (true) {
+        c = (by - b*bdy - ay + a*ady) / (ady - bdy);
+        cdy = f.eval_der(c);
+        tanits.push_back({ a, b, c, f.num_of_calls() });
+        if (cdy > 0) {
+            b = c;
+            if (b - a < K * abs(a + b))
+                break;
+            by = f.eval(c);
+            bdy = cdy;
+        } else if (cdy < 0) {
+            a = c;
+            if (b - a < K * abs(a + b))
+                break;
+            ay = f.eval(c);
+            ady = cdy;
+        } else { //got lucky
+            break;
+        }
+    }
+
+    tanits.push_back({ a, b, c, f.num_of_calls() });
+
+    return c;
+}
+
+double newton(double a, double b, double x, double eps) {
+    Function f;
+
+    double d = f.eval_der(x); 
+    while (abs(d) > eps) {
+        double dd = f.eval_der2(x);
+        x = x - d/dd;
+        d = f.eval_der(x);
+        nits.push_back({ x, f.num_of_calls() });
+    }
+
+    return x;
+}
+
+double secant(double a, double b, double x1, double x2, double eps) {
+    Function f;
+
+    double d1 = f.eval_der(x1), d2 = f.eval_der(x2);
+    while (abs(d2) > eps) {
+        double dd = (d2 - d1) / (x2 - x1);
+        x1 = x2; d1 = d2;
+        x2 = x2 - d2/dd;
+        d2 = f.eval_der(x2);
+        sits.push_back({ x2, f.num_of_calls() });
+    }
+
+    return x2;
 }
 
