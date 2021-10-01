@@ -29,7 +29,7 @@ int main() {
     const double RIGHT = 1.0;
     const double EPS = 1e-5;
 
-    const int DIGITS = 4;
+    const int DIGITS = 5;
 
     passive(LEFT, RIGHT, EPS);
     dichotomy(LEFT, RIGHT, DIGITS);
