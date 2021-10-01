@@ -51,7 +51,7 @@ V2 coord_descent(V2 p, V2 step, double eps) {
             break;
 
         if (flag == 2) {
-            K *= 2; //If the step is too small, we increase it exponentially
+            K *= 2; //If the step is too big, we decrease it exponentially
         } else if (zz - z < eps) {
             break;
         } else {
