@@ -32,6 +32,10 @@ public:
         return m_poly.divide(z);
     }
 
+    Complex get_last_root() const {
+        return m_poly.get_last_root();
+    }
+
     int num_calls() const { return m_counter; }
 
 private:
@@ -160,8 +164,14 @@ void test_method(const char *name, Method m, Args&& ...args) {
     Function f;
     printf("%s:\n", name);
     for (int i = 0; i < 3; ++i) {
-        Complex z0 = m(f, args...);
-        Complex r = f.exclude_root(z0);
+        Complex z0, r;
+        if (i < 2) {
+            z0 = m(f, args...);
+            r = f.exclude_root(z0);
+        } else {
+            z0 = f.get_last_root();
+            r = 0;
+        }
         printf("f(%.5f + %.5fi) = %12.5e + %12.5ei; ", 
             z0.real(), z0.imag(), r.real(), r.imag());
         printf("%d calls\n", f.num_calls());
@@ -171,11 +181,11 @@ void test_method(const char *name, Method m, Args&& ...args) {
 
 int main() {
     using namespace std::complex_literals;
-    auto start = 1.0 + 1i;
+    auto start = 10.0 + 10i;
     test_method(uwu(coord_descent), 0, start, 1e-5);
     test_method(uwu(grad_descent_div), start, 1, 1e-5);
     test_method(uwu(grad_descent_const), start, 1e-4, 1e-6);
-    test_method(uwu(grad_descent_seq), start, 10000, 1e-6);
-    test_method(uwu(grad_descent_fastest), start, 1e-5);
+    test_method(uwu(grad_descent_seq), start, 20000, 1e-5);
+    test_method(uwu(grad_descent_fastest), 10.0 + 7i, 1e-5);
 }
 

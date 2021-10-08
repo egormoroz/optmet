@@ -111,6 +111,10 @@ double Polynomial::eval_der_y(Complex z) const {
         + polyval2d(m_imag, z) * polyval2d(m_idy, z));
 }
 
+Complex Polynomial::get_last_root() const {
+    return -m_coeffs[3] / m_coeffs[2];
+}
+
 Complex Polynomial::divide(Complex z0) {
     CCoeffs q;
     Complex k = 0;

@@ -24,5 +24,7 @@ public:
     double eval_der_x(Complex z) const;
     double eval_der_y(Complex z) const;
 
+    Complex get_last_root() const;
+
     Complex divide(Complex z0);
 };
