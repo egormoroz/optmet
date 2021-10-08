@@ -16,10 +16,14 @@ public:
         return m_poly.eval(z);
     }
 
+    //not really a comlex number; just a nice way to represent a vector
+    Complex eval_grad(Complex z) {
+        m_counter += 2;
+        return {m_poly.eval_der_x(z), m_poly.eval_der_y(z)};
+    }
+
     Complex exclude_root(Complex z) {
-        auto result = m_poly.divide(z);
-        m_poly = result.first;
-        return result.second;
+        return m_poly.divide(z);
     }
 
     int num_calls() const { return m_counter; }
@@ -68,13 +72,62 @@ Complex coord_descent(Function &f, Complex p, Complex step, double eps) {
     return p;
 }
 
-int main() {
+Complex grad_descent(Function &f, Complex z0, double alpha, double delta) {
+    const double EPS = 0.1;
+    const double L = 0.5;
+
+    const bool OVERJUMP_GUARD = false;
+
+    Complex grad = f.eval_grad(z0);
+    double val = f.eval(z0);
+    while (norm_sqr(grad) >= delta) {
+        Complex z = z0 - alpha*grad;
+        double new_val = f.eval(z);
+        if (new_val - val > -alpha * EPS * norm_sqr(grad)) {
+            alpha *= L;
+            continue;
+        }
+
+        Complex new_grad = f.eval_grad(z);
+        if (OVERJUMP_GUARD) {
+            //если градиент ВНЕЗАПНО развернулся
+            if (grad.real() * new_grad.real() + grad.imag() * new_grad.imag() < 0) {
+                alpha *= L;
+                continue;
+            }
+        }
+        z0 = z;
+        grad = new_grad;
+        val = new_val;
+    }
+
+    return z0;
+}
+
+void test_coord_descent() {
     Function f;
     for (int i = 0; i < 3; ++i) {
-        auto z0 = coord_descent(f, {1.0, 1.0}, {0.33, 0.33}, 1e-4);
+        auto z0 = coord_descent(f, {0, 0}, {1, 1}, 1e-4);
         auto r = f.exclude_root(z0);
         printf("f(%.5f + %.5fi) = %12.5e + %12.5ei; ", 
             z0.real(), z0.imag(), r.real(), r.imag());
         printf("%d calls\n", f.num_calls());
     }
 }
+
+void test_grad_descent() {
+    Function f;
+    for (int i = 0; i < 3; ++i) {
+        auto z0 = grad_descent(f, {0, 0}, 1, 1e-4);
+        auto r = f.exclude_root(z0);
+        printf("f(%.5f + %.5fi) = %12.5e + %12.5ei; ", 
+            z0.real(), z0.imag(), r.real(), r.imag());
+        printf("%d calls\n", f.num_calls());
+    }
+}
+
+int main() {
+    test_coord_descent();
+    test_grad_descent();
+}
+
