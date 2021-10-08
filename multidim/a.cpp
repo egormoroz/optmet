@@ -4,6 +4,9 @@
 
 using namespace std;
 
+double muls(Complex x, Complex y) {
+    return x.real() * y.real() + x.imag() * y.imag();
+}
 
 class Function {
 public:
@@ -72,7 +75,7 @@ Complex coord_descent(Function &f, Complex p, Complex step, double eps) {
     return p;
 }
 
-Complex grad_descent(Function &f, Complex z0, double alpha, double delta) {
+Complex grad_descent_div(Function &f, Complex z0, double alpha, double delta) {
     const double EPS = 0.1;
     const double L = 0.5;
 
@@ -91,7 +94,7 @@ Complex grad_descent(Function &f, Complex z0, double alpha, double delta) {
         Complex new_grad = f.eval_grad(z);
         if (OVERJUMP_GUARD) {
             //если градиент ВНЕЗАПНО развернулся
-            if (grad.real() * new_grad.real() + grad.imag() * new_grad.imag() < 0) {
+            if (muls(new_grad, grad) < 0) {
                 alpha *= L;
                 continue;
             }
@@ -104,22 +107,30 @@ Complex grad_descent(Function &f, Complex z0, double alpha, double delta) {
     return z0;
 }
 
-void test_coord_descent() {
-    Function f;
-    for (int i = 0; i < 3; ++i) {
-        auto z0 = coord_descent(f, {0, 0}, {1, 1}, 1e-4);
-        auto r = f.exclude_root(z0);
-        printf("f(%.5f + %.5fi) = %12.5e + %12.5ei; ", 
-            z0.real(), z0.imag(), r.real(), r.imag());
-        printf("%d calls\n", f.num_calls());
+
+Complex grad_descent_const(Function &f, Complex z, double alpha, double delta) {
+    Complex grad = f.eval_grad(z);
+    double val = f.eval(z);
+    int counter = 0;
+    while (norm_sqr(grad) >= delta && counter < 10) {
+        z = z - alpha*grad;
+        auto new_val = f.eval(z);
+        if (new_val > val) {
+            counter++;
+        }
+        val = f.eval(z);
+        grad = f.eval_grad(z);
     }
+
+    return z;
 }
 
-void test_grad_descent() {
+template<typename Method, typename... Args>
+void test_method(Method m, Args&& ...args) {
     Function f;
     for (int i = 0; i < 3; ++i) {
-        auto z0 = grad_descent(f, {0, 0}, 1, 1e-4);
-        auto r = f.exclude_root(z0);
+        Complex z0 = m(f, args...);
+        Complex r = f.exclude_root(z0);
         printf("f(%.5f + %.5fi) = %12.5e + %12.5ei; ", 
             z0.real(), z0.imag(), r.real(), r.imag());
         printf("%d calls\n", f.num_calls());
@@ -127,8 +138,10 @@ void test_grad_descent() {
 }
 
 int main() {
-    test_coord_descent();
-    test_grad_descent();
-
+    using namespace std::complex_literals;
+    auto start = 3.0 + 3i;
+    test_method(coord_descent, 0, start, 1e-4);
+    test_method(grad_descent_div, start, 1, 1e-4);
+    test_method(grad_descent_const, start, 1e-4, 1e-4);
 }
 
