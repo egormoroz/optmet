@@ -1,6 +1,9 @@
 #include <cstdio>
 #include <iostream>
 #include "poly.hpp"
+#include "oned.hpp"
+
+#define uwu(s) #s, s
 
 using namespace std;
 
@@ -107,7 +110,6 @@ Complex grad_descent_div(Function &f, Complex z0, double alpha, double delta) {
     return z0;
 }
 
-
 Complex grad_descent_const(Function &f, Complex z, double alpha, double delta) {
     Complex grad = f.eval_grad(z);
     double val = f.eval(z);
@@ -118,6 +120,34 @@ Complex grad_descent_const(Function &f, Complex z, double alpha, double delta) {
         if (new_val > val) {
             counter++;
         }
+        val = new_val;
+        grad = f.eval_grad(z);
+    }
+
+    return z;
+}
+
+Complex grad_descent_seq(Function &f, Complex z, int k, double delta) {
+    Complex grad = f.eval_grad(z);
+    double val = f.eval(z);
+    while (norm_sqr(grad) >= delta) {
+        z = z - (1.0/k++) * grad;
+        val = f.eval(z);
+        grad = f.eval_grad(z);
+    }
+
+    return z;
+}
+
+Complex grad_descent_fastest(Function &f, Complex z, double delta) {
+    const double EPS = 1e-5;
+    Complex grad = f.eval_grad(z);
+    double val = f.eval(z);
+    while (norm_sqr(grad) >= delta) {
+        double alpha = golden_ratio([&](double alpha) {
+            return f.eval(z - alpha * grad);
+        }, 0, 1, EPS);
+        z = z - alpha * grad;
         val = f.eval(z);
         grad = f.eval_grad(z);
     }
@@ -126,8 +156,9 @@ Complex grad_descent_const(Function &f, Complex z, double alpha, double delta) {
 }
 
 template<typename Method, typename... Args>
-void test_method(Method m, Args&& ...args) {
+void test_method(const char *name, Method m, Args&& ...args) {
     Function f;
+    printf("%s:\n", name);
     for (int i = 0; i < 3; ++i) {
         Complex z0 = m(f, args...);
         Complex r = f.exclude_root(z0);
@@ -135,13 +166,16 @@ void test_method(Method m, Args&& ...args) {
             z0.real(), z0.imag(), r.real(), r.imag());
         printf("%d calls\n", f.num_calls());
     }
+    printf("\n");
 }
 
 int main() {
     using namespace std::complex_literals;
-    auto start = 3.0 + 3i;
-    test_method(coord_descent, 0, start, 1e-4);
-    test_method(grad_descent_div, start, 1, 1e-4);
-    test_method(grad_descent_const, start, 1e-4, 1e-4);
+    auto start = 1.0 + 1i;
+    test_method(uwu(coord_descent), 0, start, 1e-5);
+    test_method(uwu(grad_descent_div), start, 1, 1e-5);
+    test_method(uwu(grad_descent_const), start, 1e-4, 1e-6);
+    test_method(uwu(grad_descent_seq), start, 10000, 1e-6);
+    test_method(uwu(grad_descent_fastest), start, 1e-5);
 }
 
