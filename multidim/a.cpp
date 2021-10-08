@@ -129,5 +129,6 @@ void test_grad_descent() {
 int main() {
     test_coord_descent();
     test_grad_descent();
+
 }
 
