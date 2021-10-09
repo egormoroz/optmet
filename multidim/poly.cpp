@@ -102,13 +102,18 @@ double Polynomial::eval(Complex z) const {
 }
 
 double Polynomial::eval_der_x(Complex z) const {
-    return 2 * (polyval2d(m_real, z) * polyval2d(m_rdx, z)
-        + polyval2d(m_imag, z) * polyval2d(m_idx, z));
+    // return 2 * (polyval2d(m_real, z) * polyval2d(m_rdx, z)
+        // + polyval2d(m_imag, z) * polyval2d(m_idx, z));
+    const double h = 1e-7;
+    return (eval(z + h) - eval(z - h)) / (2 * h);
 }
 
 double Polynomial::eval_der_y(Complex z) const {
-    return 2 * (polyval2d(m_real, z) * polyval2d(m_rdy, z)
-        + polyval2d(m_imag, z) * polyval2d(m_idy, z));
+    // return 2 * (polyval2d(m_real, z) * polyval2d(m_rdy, z)
+        // + polyval2d(m_imag, z) * polyval2d(m_idy, z));
+    const double h = 1e-7;
+    const Complex t(0, h);
+    return (eval(z + t) - eval(z - t)) / (2*h);
 }
 
 Complex Polynomial::get_last_root() const {
