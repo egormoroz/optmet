@@ -6,6 +6,7 @@
 #define uwu(s) #s, s
 
 using namespace std;
+    using namespace std::complex_literals;
 
 double muls(Complex x, Complex y) {
     return x.real() * y.real() + x.imag() * y.imag();
@@ -13,7 +14,7 @@ double muls(Complex x, Complex y) {
 
 class Function {
 public:
-    Function() : m_poly{ { 1, {-17, -18}, {-13, 214}, {485, -388} } } 
+    Function() : m_poly{{ 4. + 5i, 9. + 4i, 4. + 9i }} 
     {
     }
 
@@ -195,7 +196,6 @@ void test_method(const char *name, Method m, Complex z0, Args&& ...args) {
 
 
 int main() {
-    using namespace std::complex_literals;
     auto start = 10.0 + 10i;
     test_method(uwu(coord_descent), 0, start, 1e-3);
     test_method(uwu(grad_descent_div), start, 1, 1e-3);

@@ -3,28 +3,56 @@
 #include <array>
 
 using Complex = std::complex<double>;
+using Coeffs = std::array<Complex, 4>;
 
-using CCoeffs = std::array<Complex, 4>;
-using RCoeffs = std::array<double, 10>;
-
-double norm_sqr(Complex z);
+double norm_sqr(Complex z) {
+    return z.real() * z.real() + z.imag() * z.imag();
+}
 
 class Polynomial {
-    CCoeffs m_coeffs;
-    RCoeffs m_real, m_imag;
-    RCoeffs m_rdx, m_rdy;
-    RCoeffs m_idx, m_idy;
-
-    void recalc(); 
+    Coeffs m_coeffs;
 public:
-    Polynomial(const CCoeffs &coeffs);
+    Polynomial(const std::array<Complex, 3> &r) {
+        m_coeffs[0] = 1;
+        m_coeffs[1] = -r[0] - r[1] - r[2];
+        m_coeffs[2] = r[0]*r[1] + r[0]*r[2] + r[1]*r[2];
+        m_coeffs[3] = -r[0] * r[1] * r[2];
+    }
 
-    double eval(Complex z) const;
+    double Polynomial::eval(Complex z) const {
+        return norm_sqr(
+            m_coeffs[0] * z * z * z
+          + m_coeffs[1] * z * z
+          + m_coeffs[2] * z
+          + m_coeffs[3]
+        );
+    }
 
-    double eval_der_x(Complex z) const;
-    double eval_der_y(Complex z) const;
+    double Polynomial::eval_der_x(Complex z) const {
+        const double h = 1e-7;
+        return (eval(z + h) - eval(z - h)) / (2 * h);
+    }
 
-    Complex get_last_root() const;
+    double Polynomial::eval_der_y(Complex z) const {
+        const double h = 1e-7;
+        const Complex t(0, h);
+        return (eval(z + t) - eval(z - t)) / (2*h);
+    }
 
-    Complex divide(Complex z0);
+    Complex Polynomial::get_last_root() const {
+        return -m_coeffs[3] / m_coeffs[2];
+    }
+
+    Complex Polynomial::divide(Complex z0) {
+        Coeffs q;
+        Complex k = 0;
+        for (int i = 0; i <= 2; ++i) {
+            k = m_coeffs[i] + k * z0;
+            q[i + 1] = k;
+        }
+
+        Complex remainder = m_coeffs[3] + k * z0;
+        m_coeffs = q;
+        return remainder;
+    }
 };
