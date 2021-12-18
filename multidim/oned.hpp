@@ -1,40 +1,19 @@
 #pragma once
-
 template<typename F>
-double golden_ratio(F f, double a, double b, double eps) {
-    double P = (3 - sqrt(5)) / 2,
-           Q = (sqrt(5) - 1) / 2;
+double xyz(F f, double step, double eps) {
+    double x = 0., y = f(x);
+    const double L = 0.5;
 
-    double c = P * (b - a) + a, cy = f(c),
-           d = Q * (b - a) + a, dy = f(d);
-    if (cy < dy) {
-        b = d;
-        d = c; dy = cy;
-        c = P * (b - a) + a; cy = f(c);
-    } else {
-        a = c;
-        c = d;cy = dy;
-        d = Q * (b - a) + a; dy = f(d);
-    }
-
-    while (true) {
-        if (cy < dy) {
-            b = d;
-            d = c; dy = cy;
-            c = P * (b - a) + a; 
-            if (b - a < 2 * eps)
-                break;
-            cy = f(c);
-        } else {
-            a = c;
-            c = d;cy = dy;
-            d = Q * (b - a) + a; 
-            if (b - a < 2 * eps)
-                break;
-            dy = f(d);
+    while (step > eps) {
+        double xx = x + step, yy = f(xx);
+        if (yy > y) {
+            step *= L;
+            continue;
         }
+        x = xx;
+        y = yy;
     }
 
-    return (a + b) / 2;
+    return x;
 }
 
