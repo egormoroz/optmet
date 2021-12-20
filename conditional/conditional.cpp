@@ -151,7 +151,7 @@ void surf_border(Function& f, Complex& z, double eps) {
     }
 
     Complex gg = g_grad(z);
-    double cos = my_cos(fg, gg);
+    double cos = my_cos(-fg, gg);
     const double TARGET_COS = 0.9994;
     while (cos < TARGET_COS) {
 
@@ -165,7 +165,7 @@ void surf_border(Function& f, Complex& z, double eps) {
 
         fg = f.eval_grad(z);
         gg = g_grad(z);
-        cos = abs(muls(-fg, gg) / (norm(fg) * norm(gg)));
+        cos = my_cos(-fg, gg);
         ++k;
 
         printf("%d; %d; (%f, %f); %f; %f; (%f, %f); (%f, %f); (%f, %f); %f; %f\n", 
@@ -180,17 +180,17 @@ int main() {
     Complex z(0.);
     Function f({4, 5}, {4, 9}, {9, 4});
 
-//    freopen("exterior.csv", "w", stdout);
-    printf("Iteration; Calls; (x, y); f(x, y); g(x, y);"
-            "phi(x, y); grad_f; grad_g; cos; angle\n");
-    exterior_grad(f, z, 0.1, 1e-3, 1e-3);
+    /* freopen("exterior.csv", "w", stdout); */
+    /* printf("Iteration; Calls; (x, y); f(x, y); g(x, y);" */
+    /*         "phi(x, y); grad_f; grad_g; cos; angle\n"); */
+    /* exterior_grad(f, z, 0.1, 1e-3, 1e-3); */
 
-    f.reset();
-    z = 0.;
-//    freopen("interior.csv", "w", stdout);
-    printf("Iteration; Calls; (x, y); f(x, y); g(x, y);"
-           "psi(x, y); grad_f; grad_g; cos; angle\n");
-    interior_grad(f, z, 0.1, 1e-3);
+    /* f.reset(); */
+    /* z = 0.; */
+    /* freopen("interior.csv", "w", stdout); */
+    /* printf("Iteration; Calls; (x, y); f(x, y); g(x, y);" */
+    /*        "psi(x, y); grad_f; grad_g; cos; angle\n"); */
+    /* interior_grad(f, z, 0.1, 1e-3); */
 
     f.reset();
     z = 0.;
