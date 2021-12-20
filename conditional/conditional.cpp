@@ -150,14 +150,17 @@ void surf_border(Function& f, Complex& z, double eps) {
         ++k;
     }
 
-    Complex gg = g_grad(z);
+    Complex gg = g_grad(z), prev_tan = 0.;
     double cos = my_cos(-fg, gg);
     const double TARGET_COS = 0.9994;
-    while (cos < TARGET_COS) {
-
+    double alpha = 0.1;
+    do {
         Complex tan = -fg - gg * muls(-fg, gg) / norm_sqr(gg);
+        if (muls(tan, prev_tan) < 0)
+            alpha /= 2;
+        prev_tan = tan;
+
         tan /= norm(tan);
-        const double alpha = 0.01;
         z += tan * alpha;
 
         if (g(z) > EPS)
@@ -172,7 +175,7 @@ void surf_border(Function& f, Complex& z, double eps) {
             k, f.num_calls(), z.real(), z.imag(), f.dbg_eval(z), g(z),
             fg.real(), fg.imag(), gg.real(), gg.imag(), tan.real(), tan.imag(), cos,
             acos(cos) * 180 / M_PI);
-    }
+    } while (cos < TARGET_COS);
 }
 
 
@@ -192,9 +195,9 @@ int main() {
     /*        "psi(x, y); grad_f; grad_g; cos; angle\n"); */
     /* interior_grad(f, z, 0.1, 1e-3); */
 
-    f.reset();
-    z = 0.;
-//    freopen("surf_border.csv", "w", stdout);
+    /* f.reset(); */
+    /* z = 0.; */
+    /* freopen("surf_border.csv", "w", stdout); */
     printf("Iteration; Calls; (x, y); f(x, y); g(x, y); grad_f; grad_g;"
         "alpha * tan; cos(-grad_f, grad_g); angle\n");
     surf_border(f, z, 0.);
