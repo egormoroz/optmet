@@ -26,10 +26,6 @@ void print_gd_results(const Result r[3]) {
 }
 
 
-double muls(Complex x, Complex y) {
-    return x.real() * y.real() + x.imag() * y.imag();
-}
-
 Complex estm_min_loc(double x0, double xx, double y0, double yy, double step) {
     Function f;
     Complex z(x0, y0);
@@ -48,60 +44,52 @@ Complex estm_min_loc(double x0, double xx, double y0, double yy, double step) {
     return z;
 }
 
-bool try_advance(Function &f, Complex &p, double &z, Complex step, int k) {
-    auto pp = p + step;
-    double zz = f.eval(pp);
+bool try_advance(Function &f, Complex &z, double &val, Complex step, int k) {
+    auto zz = z + step;
+    double new_val = f.eval(zz);
     printf("%d, %d, %f, %f, (%f; %f), %f\n", k, f.num_calls(), 
-        step.real(), step.imag(), pp.real(), pp.imag(), zz);
-    if (zz >= z)
+        step.real(), step.imag(), zz.real(), zz.imag(), new_val);
+    if (new_val >= val)
         return false;
     do {
-        p = pp; z = zz;
-        pp = p + step; zz = f.eval(pp);
+        z = zz; val = new_val;
+        zz = z + step; new_val = f.eval(zz);
         printf("%d, %d, %f, %f, (%f; %f), %f\n", k, f.num_calls(), 
-            step.real(), step.imag(), pp.real(), pp.imag(), zz);
-    } while (zz < z);
+            step.real(), step.imag(), zz.real(), zz.imag(), new_val);
+    } while (new_val < val);
     return true;
 }
 
-int coord_descent(Function &f, Complex &p, Complex &step, int r) {
+int coord_descent(Function &f, Complex &z, Complex &step, int r) {
     Complex dx(step.real(), 0.), dy(0., step.imag()), pp;
-    double z = f.eval(p), zz;
+    double val = f.eval(z);
 
     double K = 1.0 / (2.0 * pow(10, r)),
         old_dx, old_dy;
 
     int k = 1;
-    double D = 2.0;
 
     do {
-        pp = p; zz = z;
-        old_dx = dx.real(); old_dy = dy.imag();
+        old_dx = abs(dx.real()); old_dy = abs(dy.imag());
 
-        int flag = 0;
-        if (old_dx > K * abs(p.real())) {
-            if (!try_advance(f, p, z, dx, k) && !try_advance(f, p, z, -dx, k)) {
-                dx /= D;
-                flag++;
+        if (old_dx > K * abs(z.real())) {
+            if (!try_advance(f, z, val, dx, k)) {
+                dx = -dx;
+                try_advance(f, z, val, dx, k);
             }
-        } else {
-            flag++;
+            dx /= 2;
         }
 
-        if (old_dy > K * abs(p.imag())) {
-            if (!try_advance(f, p, z, dy, k) && !try_advance(f, p, z, -dy, k)) {
-                dy /= D;
-                flag++;
+        if (old_dy > K * abs(z.imag())) {
+            if (!try_advance(f, z, val, dy, k)) {
+                dy = -dy;
+                try_advance(f, z, val, dy, k);
             }
-        } else {
-            flag++;
+            dy /= 2;
         }
 
-        D = flag == 2 ? D * 2.0 : 2.0;
-        dx /= 1.1;
-        dy /= 1.1;
         ++k;
-    } while (old_dx > K * abs(p.real()) || old_dy > K * abs(p.imag()));
+    } while (old_dx > K * abs(z.real()) || old_dy > K * abs(z.imag()));
 
     step = dx + dy;
 
@@ -163,6 +151,7 @@ int grad_descent_seq(Function &f, Complex &z, int &n, double delta) {
     double val = f.eval(z);
     int k = 0;
     while (norm_sqr(grad) >= delta) {
+        grad /= norm(grad);
         double alpha = 1.0/n++;
         auto ag = alpha * grad;
         log_gd(++k, f.num_calls(), z, ag, f.dbg_eval(z - ag));
@@ -208,7 +197,7 @@ void test_coord_descent(Complex z0, Complex stp, int R) {
     step = stp;
     its = coord_descent(f, z0, step, R);
     r[0] = { z0, f.num_calls(), its };
-    f.exclude_root(z0);
+    f.divide(z0);
 
     //second root
     f.reset(); orig.reset();
@@ -216,7 +205,7 @@ void test_coord_descent(Complex z0, Complex stp, int R) {
     lits = coord_descent(f, z0, step, R - 1);
     sits = coord_descent(orig, z0, step, R);
     r[1] = { z0, f.num_calls() + orig.num_calls(), lits + sits };
-    f.exclude_root(z0);
+    f.divide(z0);
 
     //third root
     orig.reset();
@@ -243,14 +232,14 @@ void test_gd_div(Complex z0, double alpha, double delta) {
     //first root
     its = grad_descent_div(f, z0, alpha, delta);
     r[0] = { z0, f.num_calls(), its };
-    f.exclude_root(z0);
+    f.divide(z0);
 
     //second root
     f.reset(); orig.reset();
     lits = grad_descent_div(f, z0, alpha, delta);
     sits = grad_descent_div(orig, z0, alpha, delta);
     r[1] = {z0, f.num_calls() + orig.num_calls(), lits + sits};
-    f.exclude_root(z0);
+    f.divide(z0);
 
     //third root
     orig.reset();
@@ -272,14 +261,14 @@ void test_gd_const(Complex z0, double alpha, double delta) {
     //first root
     its = grad_descent_const(f, z0, alpha, delta);
     r[0] = { z0, f.num_calls(), its };
-    f.exclude_root(z0);
+    f.divide(z0);
 
     //second root
     f.reset(); orig.reset();
     lits = grad_descent_const(f, z0, alpha, delta);
     sits = grad_descent_const<true>(orig, z0, alpha, delta);
     r[1] = {z0, f.num_calls() + orig.num_calls(), lits + sits};
-    f.exclude_root(z0);
+    f.divide(z0);
 
     //third root
     orig.reset();
@@ -302,7 +291,7 @@ void test_gd_seq(Complex z0, int n, double delta) {
     int m = n;
     its = grad_descent_seq(f, z0, m, delta);
     r[0] = { z0, f.num_calls(), its };
-    f.exclude_root(z0);
+    f.divide(z0);
 
     //second root
     f.reset(); orig.reset();
@@ -310,7 +299,7 @@ void test_gd_seq(Complex z0, int n, double delta) {
     lits = grad_descent_seq(f, z0, m, delta);
     sits = grad_descent_seq(orig, z0, m, delta);
     r[1] = {z0, f.num_calls() + orig.num_calls(), lits + sits};
-    f.exclude_root(z0);
+    f.divide(z0);
 
     //third root
     orig.reset();
@@ -332,14 +321,14 @@ void test_gd_fastest(Complex z0, double delta) {
     //first root
     its = grad_descent_fastest(f, z0, delta);
     r[0] = { z0, f.num_calls(), its };
-    f.exclude_root(z0);
+    f.divide(z0);
 
     //second root
     f.reset(); orig.reset();
     lits = grad_descent_fastest(f, z0, delta * 10.0);
     sits = grad_descent_fastest(orig, z0, delta);
     r[1] = {z0, f.num_calls() + orig.num_calls(), lits + sits};
-    f.exclude_root(z0);
+    f.divide(z0);
 
     //third root
     orig.reset();
@@ -354,9 +343,9 @@ int main() {
     Complex start = estm_min_loc(-10, 10, -10, 10, 4);
     printf("%f, %f\n", start.real(), start.imag());
     const int R = 4;
-//    test_coord_descent(start, 0.9 + 0.9i, R);
-//    test_gd_div(start, 0.01, 0.01);
-//    test_gd_const(start, 1e-3, 0.01);
-//    test_gd_seq(start, 1000, 0.01);
+    test_coord_descent(start, 0.9 + 0.9i, R);
+    test_gd_div(start, 0.01, 0.01);
+    test_gd_const(start, 1e-3, 0.01);
+    test_gd_seq(start, 1, 0.01);
     test_gd_fastest(start, 0.01);
 }
