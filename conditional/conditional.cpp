@@ -5,20 +5,25 @@
 #include <algorithm>
 using namespace std;
 
+//Функция ограничения, в нашем случае - окружность
 double g(Complex z) {
     const double R = 6;
     double x = z.real(), y = z.imag();
     return x * x + y * y - R * R;
 }
 
+//Градиент функции ограничения
 Complex g_grad(Complex z) {
     return z * 2.;
 }
 
+//Косинус между углами a и b
 double my_cos(Complex a, Complex b) {
     return muls(a, b) / (norm(a) * norm(b));
 }
 
+//Метод внешним штрафов
+//для безусловной минимизации используется МНГС, делающий один шаг
 void exterior_grad(Function &f, Complex &z, double step, double min_step, double eps) {
     double r = 1.0;
     int k = 1;
@@ -41,6 +46,7 @@ void exterior_grad(Function &f, Complex &z, double step, double min_step, double
         auto grad = fg + 2 * max(0.0, g(z)) * gg;
         grad /= norm(grad);
         double st = step, alpha = 0, val = phi(z);
+        //одномерная минимизация для МНГС
         while (st > min_step) {
             double beta = alpha + st, new_val = phi(z - beta * grad);
             if (new_val > val) {
@@ -66,10 +72,12 @@ void exterior_grad(Function &f, Complex &z, double step, double min_step, double
 
         ++k;
         r *= 2;
+        //делаем небольшой шаг назад, чтобы метод не застревал на границе
         z -= gg / norm(gg) * step;
     }
 }
 
+//метод внутренних штрафов с МНГС
 void interior_grad(Function &f, Complex &z, double step, double min_step) {
     double t = 1.0;
     int k = 1;
@@ -96,6 +104,8 @@ void interior_grad(Function &f, Complex &z, double step, double min_step) {
         while (st > min_step) {
             double beta = alpha + st;
             auto zz = z - beta * grad;
+            //шаг слишком большой, если он выбивает нас за границу
+            //допустимой области
             if (g(zz) > 0) {
                 st /= 2;
                 continue;
@@ -129,6 +139,7 @@ void interior_grad(Function &f, Complex &z, double step, double min_step) {
     }
 }
 
+//метод условного градиента
 void surf_border(Function& f, Complex& z, double eps) {
     const double EPS = 1e-5;
     const double L = 0.5;
@@ -136,8 +147,13 @@ void surf_border(Function& f, Complex& z, double eps) {
     int k = 1;
 
     Complex fg = f.eval_grad(z);
+    //быстро и грубо шагами длиной APPROACH_STEP подходим к границе
     while (abs(g(z)) > EPS) {
         fg /= norm(fg);
+        //если шаг выбивает нас за границу допустимой области,
+        //линейно аппроксимируем g(x, y) и делаем шаг с такой длиной,
+        //чтобы попасть ровненько на границу (g(x,y) = 0)
+        //подробнее - в методичке
         if (g(z - APPROACH_STEP * fg) > EPS) {
             z -= g(z) / muls(g_grad(z), fg) * fg;
         } else {
@@ -154,8 +170,16 @@ void surf_border(Function& f, Complex& z, double eps) {
     double cos = my_cos(-fg, gg);
     const double TARGET_COS = 0.9994;
     double alpha = 0.1;
+    //начинаем скользить по границе допустимой области
+    //останавливаемся, когда косинус между антиградиентом f и градиентом g
+    //станет больше либо равен TARGET_COS (т.е. меньше двух градусов)
     do {
+        //Проекция антиградиента на касательную плоскость
         Complex tan = -fg - gg * muls(-fg, gg) / norm_sqr(gg);
+        //если проекция антиградиента резко изменила направление
+        //т.е. угол между прыдудущей проекцией и текущей тупой,
+        //то это означает, что мы сделали слишком большой шаг и проскочили минимум
+        //раз шаг слишком большой, то делим его пополам
         if (muls(tan, prev_tan) < 0)
             alpha /= 2;
         prev_tan = tan;
@@ -163,6 +187,9 @@ void surf_border(Function& f, Complex& z, double eps) {
         tan /= norm(tan);
         z += tan * alpha;
 
+        //Если слишком сильно вышли за границу, то возвращаемся обратно.
+        //возвращаемся по направлению антиградиента с такой длиной, 
+        //что линейная аппроксимация g в новой точке равна 0
         if (g(z) > EPS)
             z -= g(z) / norm_sqr(gg) * gg;
 

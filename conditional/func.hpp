@@ -27,6 +27,7 @@ double norm(Complex a) {
     return sqrt(norm_sqr(a));
 }
 
+//Комментарии есть multidim/func.hpp
 class Function {
     Complex m_poly[4], m_der[3];
     int m_counter;

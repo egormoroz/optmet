@@ -15,14 +15,17 @@ Complex polyval(const Complex (&p)[N], Complex z) {
     return val;
 }
 
+//Скалярное произведение (в типе Complex хранятся векторы!)
 double muls(Complex a, Complex b) {
     return a.real() * b.real() + a.imag() * b.imag();
 }
 
+//Квадрат нормы а
 double norm_sqr(Complex a) {
     return muls(a, a);
 }
 
+//Норма а
 double norm(Complex a) {
     return sqrt(norm_sqr(a));
 }
