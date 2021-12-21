@@ -27,6 +27,10 @@ double norm(Complex a) {
     return sqrt(norm_sqr(a));
 }
 
+/*
+* Описание целевой функции с счётчиком вызовов:
+* Квадрат модуля полинома с корнями z1, z2, z3
+* */
 class Function {
     Complex m_poly[4], m_der[3];
     int m_counter;
@@ -49,27 +53,35 @@ public:
         recalc_der();
     }
 
+    //Вычислить значение в точке z
     double eval(Complex z) {
         m_counter++;
         return dbg_eval(z);
     }
 
+    //Вычислить градиент в точке z и вернуь его в виде (df/dx, i*df/dy)
     Complex eval_grad(Complex z) {
         m_counter += 2;
         return dbg_eval_grad(z);
     }
 
+    //Вычислить значение функции, не увеличивая счётчик (используется для отладки)
     double dbg_eval(Complex z) const {
         return norm_sqr(polyval(m_poly, z));
     }
 
+    //Вычислить градиент функции, не увеличивая счётчик
     Complex dbg_eval_grad(Complex z) const {
         return 2.0 * std::conj(polyval(m_der, z)) * polyval(m_poly, z);
     }
 
+    //Сбросить кол-во вызовов
     void reset() { m_counter = 0; }
+    //Получить количество вызовов
     int num_calls() const { return m_counter; }
 
+    //Разделить полином на корень z
+    //(делит изначальный комплексный полином третьей степени, а не квадрат модуля)
     Complex divide(Complex z) {
         Complex k = 0;
         Complex new_coeffs[4];
@@ -86,6 +98,7 @@ public:
         return remainder;
     }
 
+    //Получить последний корень, когда полином выглядит так: az+b=0
     Complex get_last_root() const {
         return -m_poly[3] / m_poly[2];
     }

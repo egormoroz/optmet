@@ -26,6 +26,8 @@ void print_gd_results(const Result r[3]) {
 }
 
 
+//Рисует сетку на плоскости Oxy [x0; xx] и [y0; yy] и ищет узел с наименьшим значением
+//используется для быстрой оценки примерного нахождения минимума
 Complex estm_min_loc(double x0, double xx, double y0, double yy, double step) {
     Function f;
     Complex z(x0, y0);
@@ -44,6 +46,8 @@ Complex estm_min_loc(double x0, double xx, double y0, double yy, double step) {
     return z;
 }
 
+//Попытаться уменьшить значение функции, делая шаги step начиная из точки z
+//Возвращает true, если удалось уменьшить значение, иначе false
 bool try_advance(Function &f, Complex &z, double &val, Complex step, int k) {
     auto zz = z + step;
     double new_val = f.eval(zz);
@@ -60,7 +64,9 @@ bool try_advance(Function &f, Complex &z, double &val, Complex step, int k) {
     return true;
 }
 
+//Метод покоординатного спуска, r - необходимое количество верных цифр
 int coord_descent(Function &f, Complex &z, Complex &step, int r) {
+    //dx и dy - длины шага по соответствующей координате
     Complex dx(step.real(), 0.), dy(0., step.imag()), pp;
     double val = f.eval(z);
 
@@ -72,6 +78,7 @@ int coord_descent(Function &f, Complex &z, Complex &step, int r) {
     do {
         old_dx = abs(dx.real()); old_dy = abs(dy.imag());
 
+        //Если по х ещё не было получено достаточно верных цифр
         if (old_dx > K * abs(z.real())) {
             if (!try_advance(f, z, val, dx, k)) {
                 dx = -dx;
@@ -80,6 +87,7 @@ int coord_descent(Function &f, Complex &z, Complex &step, int r) {
             dx /= 2;
         }
 
+        //Если по y ещё не было получено достаточно верных цифр
         if (old_dy > K * abs(z.imag())) {
             if (!try_advance(f, z, val, dy, k)) {
                 dy = -dy;
@@ -96,6 +104,7 @@ int coord_descent(Function &f, Complex &z, Complex &step, int r) {
     return k;
 }
 
+//Метод градиентного спуска с дроблением шага
 int grad_descent_div(Function &f, Complex &z0, double alpha, double delta) {
     const double EPS = 0.1;
     const double L = 0.5;
@@ -107,6 +116,7 @@ int grad_descent_div(Function &f, Complex &z0, double alpha, double delta) {
     while (norm_sqr(grad) >= delta) {
         Complex z = z0 - alpha*grad;
         double new_val = f.eval(z);
+        //Условие взято из методички, забыл, как оно выводится
         if (new_val - val > -alpha * EPS * norm_sqr(grad)) {
             printf("*");
             log_gd(k, f.num_calls(), z, alpha * grad, new_val);
@@ -123,6 +133,9 @@ int grad_descent_div(Function &f, Complex &z0, double alpha, double delta) {
     return k;
 }
 
+//Метод градиентного спуска с постоянным шагом
+//Если флаг CAREFUL == true, то метод обрывается сразу,
+//как только очередной шаг по антиградиенту увеличил значение
 template<bool CAREFUL = false>
 int grad_descent_const(Function &f, Complex &z, double alpha, double delta) {
     Complex grad = f.eval_grad(z);
@@ -146,6 +159,7 @@ int grad_descent_const(Function &f, Complex &z, double alpha, double delta) {
     return k;
 }
 
+//Метод градиентного спуска с заранее заданной последовательностью длин шагов
 int grad_descent_seq(Function &f, Complex &z, int &n, double delta) {
     Complex grad = f.eval_grad(z);
     double val = f.eval(z);
@@ -164,6 +178,7 @@ int grad_descent_seq(Function &f, Complex &z, int &n, double delta) {
     return k;
 }
 
+//МНГС, описание xyz смотреть в oned.hpp
 int grad_descent_fastest(Function &f, Complex &z, double delta) {
     const double EPS = 1e-5;
     Complex grad = f.eval_grad(z);
@@ -184,6 +199,8 @@ int grad_descent_fastest(Function &f, Complex &z, double delta) {
 }
 
 
+//Здесь и далее в функциях, начинающихся с test_ 
+//происходит тестирование работы методов
 void test_coord_descent(Complex z0, Complex stp, int R) {
     Result r[3];
     freopen("coord_descent.csv", "w", stdout);
@@ -193,21 +210,27 @@ void test_coord_descent(Complex z0, Complex stp, int R) {
     int its, lits, sits;
     Function orig, f;
 
-    //first root
+    //Находим первый корень, its = кол-ву итераций
     step = stp;
     its = coord_descent(f, z0, step, R);
     r[0] = { z0, f.num_calls(), its };
     f.divide(z0);
 
-    //second root
+    //Сбрасываем счётчики
     f.reset(); orig.reset();
     step = stp;
-    lits = coord_descent(f, z0, step, R - 1);
+    //Находим корень в разделённом полиноме, lits = localization iterations
+    lits = coord_descent(f, z0, step, R - 1); 
+    //Т.к. при делении была допущена погрешность, то минимум в разделённом полиноме
+    //может отличаться от минимума в изначальном полиноме
+    //для этого запускаем ещё раз КС на изначальной функции orig
+    //после предыдущего coord_descent в step хранится шаг с последней итерации
     sits = coord_descent(orig, z0, step, R);
     r[1] = { z0, f.num_calls() + orig.num_calls(), lits + sits };
     f.divide(z0);
 
-    //third root
+    //Получаем корень аналитически из уравнения az+b=0
+    //и так же улучшаем точность, запуская КС на изначальном полиноме
     orig.reset();
     double K = 1.0 / (2.0 * pow(10, R));
     z0 = f.get_last_root();
@@ -221,6 +244,7 @@ void test_coord_descent(Complex z0, Complex stp, int R) {
     }
 }
 
+//аналогично test_coord_descent, смотреть комментарии там
 void test_gd_div(Complex z0, double alpha, double delta) {
     freopen("gd_div.csv", "w", stdout);
     printf("Iteration, Calls, Z, alpha * Gradient, f(z - alpha * gradient)\n");
@@ -340,6 +364,7 @@ void test_gd_fastest(Complex z0, double delta) {
 }
 
 int main() {
+    //найти примерный минимум, нарисовав сетку и проверив узлы
     Complex start = estm_min_loc(-10, 10, -10, 10, 4);
     printf("%f, %f\n", start.real(), start.imag());
     const int R = 4;
